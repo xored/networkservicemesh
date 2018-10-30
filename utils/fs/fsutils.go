@@ -44,11 +44,10 @@ func FindFileInProc(inode uint64, suffix string) (string, error) {
 		if isDigits(name) {
 			filename := "/proc/" + name + suffix
 			tryInode, err := GetInode(filename)
-			if err != nil {
-				return "", err
-			}
-			if tryInode == inode {
-				return filename, nil
+			if err == nil {
+				if tryInode == inode {
+					return filename, nil
+				}
 			}
 		}
 	}

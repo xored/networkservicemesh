@@ -22,6 +22,9 @@ sleep 60
 echo "Running nsm client..."
 docker run -d -v "/var/lib/networkservicemesh:/var/lib/networkservicemesh" nsmd/nsc >> "${CONTAINERTXT}"
 
+echo "waiting 20 seconds..."
+sleep 20
+
 echo "Showing nsmd logs..."
 docker logs "$(sed '1q;d' ${CONTAINERTXT})"
 
