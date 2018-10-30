@@ -52,7 +52,7 @@ func startDataplaneAgent(vpp nsmvpp.Interface, stopCh chan struct{}) error {
 		select {
 		case <-stopCh:
 			logrus.Infof("Received shutdown message, shutting down agent.")
-			vpp.Shutdown()
+			//vpp.Shutdown()
 			return nil
 		case err := <-errorCh:
 			return err
@@ -81,12 +81,12 @@ func main() {
 		}
 	}()
 	if *debug {
-		if err := vpp.Test(); err != nil {
-			logrus.Errorf("Failed to test NSM VPP Dataplane controller with error:%+v", err)
-			os.Exit(1)
-		}
-		// Introduce some fun
-		go connectionBreaker(vpp)
+		// if err := vpp.Test(); err != nil {
+		// 	logrus.Errorf("Failed to test NSM VPP Dataplane controller with error:%+v", err)
+		// 	os.Exit(1)
+		// }
+		// // Introduce some fun
+		// go connectionBreaker(vpp)
 	}
 	// Capture signals to cleanup before exiting
 	c := make(chan os.Signal, 1)
@@ -128,7 +128,7 @@ func connectionBreaker(v nsmvpp.Interface) {
 		select {
 		case <-ticker.C:
 			logrus.Info("\u2620 \u2620 \u2620  Killing connection with VPP, let's see if you can recover  \u2620 \u2620 \u2620")
-			v.BreakConnection()
+			//v.BreakConnection()
 		}
 	}
 }

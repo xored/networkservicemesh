@@ -98,11 +98,6 @@ func RegisterDataplane(vpp nsmvpp.Interface) {
 				continue
 			}
 			logrus.Infof("nsm-vpp-dataplane: dataplane has successfully been registered, starting NSM's liveness monitor.")
-			// Registration succeeded
-			// Setting up UnRegister callback for the case of VPP Disconnected event
-			vpp.SetUnRegisterCallback(UnRegisterDataplane)
-			// Marking VPP Dataplane controller as registered
-			vpp.SetRegistered()
 			// Starting NSM liveness monitor
 			go livenessMonitor(vpp, registrarConnection)
 			return
@@ -121,7 +116,6 @@ func UnRegisterDataplane(vpp nsmvpp.Interface) {
 	// the dataplane controller will assume as major issue with NSM and mark itself as Unregistered anyway
 	defer func(vpp nsmvpp.Interface) {
 		logrus.Info("Unregister deferred function was called.")
-		vpp.SetUnRegistered()
 		go RegisterDataplane(vpp)
 	}(vpp)
 
