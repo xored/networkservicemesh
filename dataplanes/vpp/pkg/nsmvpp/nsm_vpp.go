@@ -15,7 +15,7 @@
 package nsmvpp
 
 import (
-	"fmt"
+	"os"
 	"sync"
 	"time"
 
@@ -44,9 +44,9 @@ type Interface interface {
 
 // VPPDataplane defines fields of NSM VPP dataplane controller
 type VPPDataplane struct {
-	conn   *govpp.Connection
-	connCh chan govpp.ConnectionEvent
-	status *govpp.ConnectionEvent
+	// conn   *govpp.Connection
+	// connCh chan govpp.ConnectionEvent
+	// status *govpp.ConnectionEvent
 	// apiCh  govppapi.Channel
 	sync.RWMutex
 	nsmRegistered       bool
@@ -57,7 +57,18 @@ type VPPDataplane struct {
 // GetAPIChannel returns VPP Dataplane API channel. API channel is used by dataplane programming
 // functions.
 func (v *VPPDataplane) GetAPIChannel() govppapi.Channel {
-	ch, err := v.conn.NewAPIChannel()
+	logrus.Infof(" ***** Connecting to VPP ***** ")
+	vppConn, vppConnCh, err := govpp.AsyncConnect(vppapiclient.NewVppAdapter(""))
+	if err != nil {
+		logrus.Errorf("Failed to reconnect VPP with error: %+v retrying in %s", err, vppReconnectInterval.String())
+		os.Exit(1)
+	}
+	status := <-vppConnCh
+	if status.State != govpp.Connected {
+		logrus.Errorf("Timed out to reconnect to VPP, retrying in %s", vppReconnectInterval.String())
+		os.Exit(1)
+	}
+	ch, err := vppConn.NewAPIChannel()
 	if err != nil {
 		logrus.Errorf("failed open new channel: %v", err)
 		return nil
@@ -82,7 +93,7 @@ func (v *VPPDataplane) GetDataplaneSocket() string {
 
 // IsConnected returns true if VPP state is connected
 func (v *VPPDataplane) IsConnected() bool {
-	return v.status.State == govpp.Connected
+	return true
 }
 
 // SetRegistered marks VPP Dataplane controller as registered with NSM
@@ -103,7 +114,7 @@ func (v *VPPDataplane) SetUnRegistered() {
 // Shutdown shuts down api channel and closes connection with VPP.
 func (v *VPPDataplane) Shutdown() {
 	//v.apiCh.Close()
-	v.conn.Disconnect()
+	// v.conn.Disconnect()
 }
 
 // eventMonitor listens for Disconnected event, upon receiving it,
@@ -114,94 +125,33 @@ func (v *VPPDataplane) Shutdown() {
 // 4. Exits, new monitor will be started once the connection gets re-established.
 func (v *VPPDataplane) eventMonitor() {
 	logrus.Info("Starting event monitor")
-	for {
-		select {
-		case event := <-v.connCh:
-			switch event.State {
-			case govpp.Disconnected:
-				logrus.Infof("Received Disconnected event from VPP with error: %+v", event.Error)
-				// Marking VPPDataplane controller as disconnected, calling
-				// Unregister function to remove this dataplane from NSM and
-				// starting reconnector.
-				v.Lock()
-				v.status = &event
-				v.Unlock()
-				// Since VPP is disconnected, the dataplane controller cannot serve NSM's dataplane
-				// programming requests. Unregistering the dataplane from NSM.
-				// Only UnRegister if the dataplane controller has already been registered.
-				if v.nsmRegistered {
-					if v.dataplaneUnregister != nil {
-						go v.dataplaneUnregister(v)
-					} else {
-						logrus.Errorf("Should not happened, UnRegister function should not be nil, please file an issue.")
-					}
-				}
-				logrus.Infof("eventMonitor: Is VPP connected: %t", v.IsConnected())
-				go v.reConnector()
-				// Exiting monitor as a new monitor will be started after the connection gets reestablished.
-				return
-			default:
-				logrus.Infof("Received unhandled event from VPP %+v", event)
-			}
-		}
-	}
 }
 
 // reConnector is called once Disconnect message is recieved by the event monitor. It will infinetly
 // attempts to re connect to VPP, once it is succeeded, it will mark VPPDataplane controller as Connected
 // and start the dataplane registration with NSM function TODO (sbezverk).
 func (v *VPPDataplane) reConnector() {
-	ticker := time.NewTicker(vppReconnectInterval)
-	startTime := time.Now()
-	for {
-		logrus.Info("Attempting to reconnect to VPP.")
-		select {
-		case <-ticker.C:
-			vppConn, vppConnCh, err := govpp.AsyncConnect(vppapiclient.NewVppAdapter(""))
-			if err != nil {
-				logrus.Errorf("Failed to reconnect VPP with error: %+v retrying in %s", err, vppReconnectInterval.String())
-				continue
-			}
-			status := <-vppConnCh
-			if status.State != govpp.Connected {
-				logrus.Errorf("Timed out to reconnect to VPP, retrying in %s", vppReconnectInterval.String())
-				continue
-			}
-			vppConnectTime := time.Since(startTime)
-			// Locking VPPDataplane for updating some fields
-			v.Lock()
-			v.conn = vppConn
-			// v.apiCh = apiCh
-			v.connCh = vppConnCh
-			v.status = &status
-			v.Unlock()
-			logrus.Infof("Successfully reconnected to VPP, reconnection time: %s", vppConnectTime.String())
-			go v.eventMonitor()
-			return
-		}
-	}
+	// ticker := time.NewTicker(vppReconnectInterval)
+	// startTime := time.Now()
 }
 
 // NEWVPPDataplane starts VPP binary, waits until it is ready and populate
 // VPPDataplane controller structure.
 func NEWVPPDataplane(dataplaneSocket string) (Interface, error) {
-	startTime := time.Now()
-	vppConn, vppConnCh, err := govpp.AsyncConnect(vppapiclient.NewVppAdapter(""))
-	if err != nil {
-		return nil, fmt.Errorf("Failed to start NSM VPP Dataplaneagent with error:%+v", err)
-	}
+	// startTime := time.Now()
+	// vppConn, vppConnCh, err := govpp.AsyncConnect(vppapiclient.NewVppAdapter(""))
+	// if err != nil {
+	// 	return nil, fmt.Errorf("Failed to start NSM VPP Dataplaneagent with error:%+v", err)
+	// }
 
-	status := <-vppConnCh
-	if status.State != govpp.Connected {
-		return nil, fmt.Errorf("Failed to start NSM VPP Dataplaneagent with error:%+v", err)
-	}
-	vppConnectTime := time.Since(startTime)
-	logrus.Info("Connecting to VPP took ", vppConnectTime)
+	// status := <-vppConnCh
+	// if status.State != govpp.Connected {
+	// 	return nil, fmt.Errorf("Failed to start NSM VPP Dataplaneagent with error:%+v", err)
+	// }
+	// vppConnectTime := time.Since(startTime)
+	// logrus.Info("Connecting to VPP took ", vppConnectTime)
 
 	VPPDataplaneController := &VPPDataplane{
-		conn:   vppConn,
-		connCh: vppConnCh,
-		status: &status,
 		// apiCh:           apiCh,
 		nsmRegistered:   false,
 		dataplaneSocket: dataplaneSocket,
@@ -223,10 +173,10 @@ func (v *VPPDataplane) Test() error {
 // BreakConnection is used only for debugging mode to simulate Disconnected
 // message from VPP, to see how NSM VPP dataplane controller behaves
 func (v *VPPDataplane) BreakConnection() {
-	v.conn.Disconnect()
-	v.connCh <- govpp.ConnectionEvent{
-		Timestamp: time.Now(),
-		State:     govpp.Disconnected,
-		Error:     fmt.Errorf("Simulating VPP disconnect"),
-	}
+	// v.conn.Disconnect()
+	// v.connCh <- govpp.ConnectionEvent{
+	// 	Timestamp: time.Now(),
+	// 	State:     govpp.Disconnected,
+	// 	Error:     fmt.Errorf("Simulating VPP disconnect"),
+	// }
 }
