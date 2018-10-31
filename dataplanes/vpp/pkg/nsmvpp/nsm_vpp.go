@@ -15,13 +15,10 @@
 package nsmvpp
 
 import (
-	"os"
 	"sync"
 	"time"
 
-	"git.fd.io/govpp.git/adapter/vppapiclient"
 	govppapi "git.fd.io/govpp.git/api"
-	govpp "git.fd.io/govpp.git/core"
 	"github.com/sirupsen/logrus"
 )
 
@@ -57,23 +54,7 @@ type VPPDataplane struct {
 // GetAPIChannel returns VPP Dataplane API channel. API channel is used by dataplane programming
 // functions.
 func (v *VPPDataplane) GetAPIChannel() govppapi.Channel {
-	logrus.Infof(" ***** Connecting to VPP ***** ")
-	vppConn, vppConnCh, err := govpp.AsyncConnect(vppapiclient.NewVppAdapter(""))
-	if err != nil {
-		logrus.Errorf("Failed to reconnect VPP with error: %+v retrying in %s", err, vppReconnectInterval.String())
-		os.Exit(1)
-	}
-	status := <-vppConnCh
-	if status.State != govpp.Connected {
-		logrus.Errorf("Timed out to reconnect to VPP, retrying in %s", vppReconnectInterval.String())
-		os.Exit(1)
-	}
-	ch, err := vppConn.NewAPIChannel()
-	if err != nil {
-		logrus.Errorf("failed open new channel: %v", err)
-		return nil
-	}
-	return ch
+	return nil
 }
 
 // SetUnRegisterCallback sets a callback function which will be called upon detection

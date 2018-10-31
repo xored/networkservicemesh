@@ -2,10 +2,14 @@ package nsmvpp
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 
+	"git.fd.io/govpp.git/adapter/vppapiclient"
 	govppapi "git.fd.io/govpp.git/api"
+	govpp "git.fd.io/govpp.git/core"
 	"github.com/ligato/networkservicemesh/pkg/nsm/apis/common"
+	"github.com/sirupsen/logrus"
 )
 
 type vppInterface struct {
@@ -20,6 +24,17 @@ var (
 
 // CreateLocalConnect sanity checks parameters passed in the LocalMechanisms and call nsmvpp.CreateLocalConnect
 func CreateLocalConnect(apiCh govppapi.Channel, src, dst *common.LocalMechanism) (string, error) {
+	logrus.Infof(" ***** Connecting to VPP ***** ")
+	vppConn, vppConnCh, err := govpp.AsyncConnect(vppapiclient.NewVppAdapter(""))
+	if err != nil {
+		logrus.Errorf("Failed to reconnect VPP with error: %+v retrying in %s", err, vppReconnectInterval.String())
+		os.Exit(1)
+	}
+	status := <-vppConnCh
+	if status.State != govpp.Connected {
+		logrus.Errorf("Timed out to reconnect to VPP, retrying in %s", vppReconnectInterval.String())
+		os.Exit(1)
+	}
 	srcIntf := &vppInterface{}
 	dstIntf := &vppInterface{}
 
@@ -59,7 +74,7 @@ func CreateLocalConnect(apiCh govppapi.Channel, src, dst *common.LocalMechanism)
 		}
 	}
 
-	pos, err := perform(tx, apiCh)
+	pos, err := perform(tx, vppConn)
 	if err != nil {
 		rollback(tx, pos, apiCh)
 		return "", err

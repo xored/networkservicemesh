@@ -2,6 +2,7 @@ package nsmvpp
 
 import (
 	govppapi "git.fd.io/govpp.git/api"
+	govpp "git.fd.io/govpp.git/core"
 	"github.com/sirupsen/logrus"
 )
 
@@ -23,14 +24,19 @@ func rollback(tx []operation, pos int, apiCh govppapi.Channel) error {
 	return err
 }
 
-func perform(tx []operation, apiCh govppapi.Channel) (int, error) {
+func perform(tx []operation, conn *govpp.Connection) (int, error) {
 	logrus.Infof("Programming dataplane...")
 	for i := range tx {
-		err := tx[i].apply(apiCh)
+		apiCh, err := conn.NewAPIChannel()
+		if err != nil {
+			logrus.Errorf("Problems creating API channel: %v", err)
+		}
+		err = tx[i].apply(apiCh)
 		if err != nil {
 			logrus.Errorf("error performing operation %v", err)
 			return i, err
 		}
+		apiCh.Close()
 	}
 	logrus.Infof("Transaction completed!")
 	return len(tx), nil
