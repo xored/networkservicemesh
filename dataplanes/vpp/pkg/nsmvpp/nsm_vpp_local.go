@@ -5,7 +5,9 @@ import (
 	"strconv"
 
 	govppapi "git.fd.io/govpp.git/api"
+	"github.com/ligato/networkservicemesh/dataplanes/vpp/bin_api/l2"
 	"github.com/ligato/networkservicemesh/pkg/nsm/apis/common"
+	"github.com/sirupsen/logrus"
 )
 
 type vppInterface struct {
@@ -20,6 +22,34 @@ var (
 
 // CreateLocalConnect sanity checks parameters passed in the LocalMechanisms and call nsmvpp.CreateLocalConnect
 func CreateLocalConnect(apiCh govppapi.Channel, src, dst *common.LocalMechanism) (string, error) {
+	// Testing API calls, just to explore weird API call stuff
+
+	logrus.Infof("connecting inexisting interfaces...")
+	xconnectReq := l2.SwInterfaceSetL2Xconnect{
+		RxSwIfIndex: 100,
+		TxSwIfIndex: 101,
+		Enable:      1,
+	}
+	xconnectRpl := l2.SwInterfaceSetL2XconnectReply{}
+	if err := apiCh.SendRequest(&xconnectReq).ReceiveReply(&xconnectRpl); err != nil {
+		logrus.Errorf("error: %v", err)
+	} else {
+		logrus.Errorf("No error, but should be error")
+	}
+
+	logrus.Infof("connecting inexisting interfaces again...")
+	xconnectReq = l2.SwInterfaceSetL2Xconnect{
+		RxSwIfIndex: 100,
+		TxSwIfIndex: 101,
+		Enable:      1,
+	}
+	xconnectRpl = l2.SwInterfaceSetL2XconnectReply{}
+	if err := apiCh.SendRequest(&xconnectReq).ReceiveReply(&xconnectRpl); err != nil {
+		logrus.Errorf("error: %v", err)
+	} else {
+		logrus.Errorf("No error, but should be error")
+	}
+
 	srcIntf := &vppInterface{}
 	dstIntf := &vppInterface{}
 
